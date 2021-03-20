@@ -1,26 +1,23 @@
-from __future__ import print_function
 from __future__ import absolute_import
+from __future__ import print_function
 
-import matplotlib
-from matplotlib.widgets import RectangleSelector, Cursor, AxesWidget
-import pylab as pl
-from numpy import random
-import numpy
-from FlowCytometryTools import FCMeasurement
-from GoreUtilities.util import to_list
 import itertools
 
+import numpy
+import pylab as pl
+from matplotlib.widgets import Cursor, AxesWidget
 
-## TODO
-# 1. Make it impossible to pick multiple vertexes at once. (right now if vertex are too close they will be selected.)
-# 2. refactor events?
-# 3. Refactor/rename FCGateManager -> FCGateManager
-# 4. Make a separate file for drawing tools
+from FlowCytometryTools import FCMeasurement
+from FlowCytometryTools.core.utils import to_list
+
 
 def apply_format(var, format_str):
-    """ Formats all non-iterables inside of the iterable var using the format_str
+    """Format all non-iterables inside of the iterable var using the format_str
+
     Example:
-    >>> print apply_format([2, [1, 4], 4, 1], '{:.1f}') # Returns ['2.0', ['1.0', '4.0'], '4.0', '1.0']
+    >>> print apply_format([2, [1, 4], 4, 1], '{:.1f}')
+
+    will return ['2.0', ['1.0', '4.0'], '4.0', '1.0']
     """
     if isinstance(var, (list, tuple)):
         new_var = map(lambda x: apply_format(x, format_str), var)
@@ -39,9 +36,7 @@ class MOUSE:
 
 
 class Event(object):
-    """
-    An event class for passing messages between different GUI.
-    """
+    """An event class for passing messages between different gui."""
     CHANGE = 1
     VERTEX_REMOVED = 2
     BASE_GATE_CHANGED = 3
@@ -55,10 +50,7 @@ class Event(object):
 
 
 class EventGenerator(object):
-    """
-    A mixin class that allows objects to fire events and
-    register callback functions.
-    """
+    """A mixin class that allows objects to fire events and register callback functions."""
 
     def callback(self, event=None):
         if event is None:
@@ -82,15 +74,17 @@ class EventGenerator(object):
 
 
 def _check_spawnable(source_channels, target_channels):
-    """ Checks whether gate is spawnable on the target channels. """
+    """Check whether gate is spawnable on the target channels."""
     if len(target_channels) != len(set(target_channels)):
         raise Exception('Spawn channels must be unique')
-    return source_channels.issubset(set(target_channels))  # Only allow spawn if source channels are subset of target
+    return source_channels.issubset(
+        set(target_channels))  # Only allow spawn if source channels are subset of target
 
 
 class BaseVertex(EventGenerator):
     def __init__(self, coordinates, callback_list=None):
-        """
+        """Base vertex class.
+
         coordinates : dictionary
             keys : names of dimensions
             values : coordinates in each dimension
@@ -149,14 +143,14 @@ class BaseVertex(EventGenerator):
         return spawned_vertex
 
     def remove(self):
-        for s in list(self.spawn_list):  # IMPORTANT: Create a new list, because original list is modified by remove()
+        # IMPORTANT: Create a new list, because original list is modified by remove()
+        for s in list(self.spawn_list):
             s.remove()
 
     def update_coordinates(self, new_coordinates):
         """
         new_coordinates : dict
         """
-        # self.coordinates.update(new_coordinates)
         for k, v in new_coordinates.items():
             if k in self.coordinates:
                 self.coordinates[k] = v
@@ -169,6 +163,7 @@ class BaseVertex(EventGenerator):
             else:
                 svertex.update_position(verts[0], verts[1])
         self.callback(Event(Event.BASE_GATE_CHANGED))
+
 
 class SpawnableVertex(AxesWidget, EventGenerator):
     """
@@ -202,7 +197,8 @@ class SpawnableVertex(AxesWidget, EventGenerator):
         self.add_callback(callback_list)
         self.selected = False
 
-        self.coordinates = tuple([c if c is not None else 0.5 for c in coordinates])  # Replaces all Nones with 0.5
+        self.coordinates = tuple(
+            [c if c is not None else 0.5 for c in coordinates])  # Replaces all Nones with 0.5
 
         self.trackx = coordinates[0] is not None
         self.tracky = coordinates[1] is not None
@@ -298,7 +294,8 @@ class BaseGate(EventGenerator):
         coordinates_list : list of dictionaries
             each dictionary has dimension names as keys and coordinates (floats) as values
         """
-        self.verts = [BaseVertex(coordinates, self.vertex_update_callback) for coordinates in coordinates_list]
+        self.verts = [BaseVertex(coordinates, self.vertex_update_callback) for coordinates in
+                      coordinates_list]
         self.gate_type = gate_type
         self.name = name
         self.region = '?'
@@ -352,15 +349,17 @@ class BaseGate(EventGenerator):
         Generates python code that can create the gate.
         """
         channels, verts = self.coordinates
-        num_channels = len(channels)
         channels = ', '.join(["'{}'".format(ch) for ch in channels])
+
+        verts = list(verts)
 
         ## Formatting the vertexes
         # List level (must be first), used for gates that may have multiple vertexes like a polygon
         if len(verts) == 1:
             verts = verts[0]
 
-            # Tuple level (must be second), used for catching the number of dimensions on which a vertex is defined
+            # Tuple level (must be second), used for catching the number of dimensions
+            # on which a vertex is defined
             if len(verts) == 1:
                 verts = verts[0]
 
@@ -579,6 +578,7 @@ class PolyDrawer(AxesWidget):
 
 class FCGateManager(EventGenerator):
     """Manages gate creation widgets and gates."""
+
     def __init__(self, ax, callback_list=None):
         self.gates = []
         self.fig = ax.figure
@@ -588,7 +588,9 @@ class FCGateManager(EventGenerator):
         self.sample = None
         self.canvas = self.fig.canvas
         self.key_handler_cid = self.canvas.mpl_connect('key_press_event',
-                                                       lambda event: key_press_handler(event, self.canvas, self))
+                                                       lambda event: key_press_handler(event,
+                                                                                       self.canvas,
+                                                                                       self))
         self.pick_event_cid = self.canvas.mpl_connect('pick_event', self.pick_event_handler)
         self.gate_num = 1
         self.current_channels = 'd1', 'd2'
@@ -611,7 +613,6 @@ class FCGateManager(EventGenerator):
         if hasattr(self, 'ylabel_artist') and (event.artist == self.ylabel_artist):
             info['axis_num'] = 1
             self.callback(Event('axis_click', info))
-
 
     def add_gate(self, gate):
         self.gates.append(gate)
@@ -676,7 +677,8 @@ class FCGateManager(EventGenerator):
 
         def start_drawing(kind):
             if kind == 'poly':
-                self._drawing_tool = PolyDrawer(self.ax, oncreated=create_gate, lineprops=dict(color='k', marker='o'))
+                self._drawing_tool = PolyDrawer(self.ax, oncreated=create_gate,
+                                                lineprops=dict(color='k', marker='o'))
             elif kind == 'quad':
                 self._drawing_tool = Cursor(self.ax, vertOn=1, horizOn=1)
             elif kind == 'horizontal threshold':
@@ -704,15 +706,13 @@ class FCGateManager(EventGenerator):
             parent = self.fig.canvas
 
         if filepath is None:
-            from GoreUtilities import dialogs
-
+            from FlowCytometryTools.gui import dialogs
             filepath = dialogs.open_file_dialog('Select an FCS file to load',
                                                 'FCS files (*.fcs)|*.fcs', parent=parent)
 
         if filepath is not None:
             self.sample = FCMeasurement('temp', datafile=filepath)
-            print
-            'WARNING: Data is raw (not transformation).'
+            print('WARNING: Data is raw (not transformation).')
             self._sample_loaded_event()
 
     def load_measurement(self, measurement):
@@ -737,15 +737,17 @@ class FCGateManager(EventGenerator):
         channel_name: str
            new channel to plot on that axis
         """
-        new_channels = list(self.current_channels)
-        if len(new_channels) == 1:
+        current_channels = list(self.current_channels)
+        if len(current_channels) == 1:
             if axis_num == 0:
                 new_channels = channel_name,
             else:
-                new_channels = new_channels[0], channel_name
+                new_channels = current_channels[0], channel_name
         else:
+            new_channels = list(current_channels)
             new_channels[axis_num] = channel_name
-        self.set_axes(new_channels, None)
+
+        self.set_axes(new_channels, self.ax)
 
     def set_axes(self, channels, ax):
         """
@@ -753,9 +755,6 @@ class FCGateManager(EventGenerator):
             each value corresponds to a channel names
             names must be unique
         """
-        if ax is None:
-            ax = self.ax
-
         # To make sure displayed as hist
         if len(set(channels)) == 1:
             channels = channels[0],
@@ -773,7 +772,6 @@ class FCGateManager(EventGenerator):
             sgate = gate.spawn(channels, ax)
             gate._refresh_activation()
 
-
     def close(self):
         for gate in self.gates:
             gate.remove()
@@ -784,49 +782,31 @@ class FCGateManager(EventGenerator):
     ####################
 
     def plot_data(self):
-        """ Plots the loaded data """
-        if self.sample is None: return
-
-        # Clear the axes
+        """Plots the loaded data"""
+        # Clear the plot before plotting onto it
         self.ax.cla()
-        sample = self.sample
-        ax = self.ax
 
-        ###
-        # Potential code to clear axis
-        # will be easier to use in future version
-        # of matplotlib
-        #
-        #    #if self._plt_data is not None:
-        #        ## HARD CODED FOR SPEED NEEDS FIXING
-        #        #if self._plt_data[0] == '1dhist':
-        #            #patches = self._plt_data[1]
-        #            #[p.remove() for p in patches] # removes patches
-        #        #elif self._plt_data[0] == '2dhist':
-        #            #axes_image = self._plt_data[1]
-        #            #print axes_image
-        #            #print type(axes_image)
-        #            #axes_image.remove()
-        #        #self._plt_data = None
+        if self.sample is None:
+            return
 
         if self.current_channels is None:
             self.current_channels = self.sample.channel_names[:2]
 
         channels = self.current_channels
         channels_to_plot = channels[0] if len(channels) == 1 else channels
-        out = self.sample.plot(channels_to_plot, ax=self.ax)
+        self.sample.plot(channels_to_plot, ax=self.ax)
 
-        # Set pickers for x and y axis
-        self.xlabel_artist = ax.get_xaxis().get_label()
-        self.ylabel_artist = ax.get_yaxis().get_label()
+        xaxis = self.ax.get_xaxis()
+        yaxis = self.ax.get_yaxis()
+        self.xlabel_artist = xaxis.get_label()
+        self.ylabel_artist = yaxis.get_label()
         self.xlabel_artist.set_picker(5)
         self.ylabel_artist.set_picker(5)
 
         self.fig.canvas.draw()
 
     def get_generation_code(self):
-        """Returns python code that generates all drawn gates.
-        """
+        """Return python code that generates all drawn gates."""
         if len(self.gates) < 1:
             code = ''
         else:
@@ -838,7 +818,7 @@ class FCGateManager(EventGenerator):
             code = import_list + 2 * '\n' + code_list
 
         self.callback(Event('generated_code',
-                                {'code': code}))
+                            {'code': code}))
         return code
 
 
@@ -867,77 +847,3 @@ def key_press_handler(event, canvas, toolbar=None):
         toolbar.set_axes(('d1', 'd3'), pl.gca())
     elif key in ['8']:
         print(toolbar.get_generation_code())
-
-if __name__ == '__main__':
-    class Globals():
-        """ Used for testing only """
-        pass
-
-    def example1():
-        fig = figure()
-        ax = fig.add_subplot(1, 4, 1)
-        ax2 = fig.add_subplot(1, 4, 2)
-        ax3 = fig.add_subplot(1, 4, 3)
-        ax4 = fig.add_subplot(1, 4, 4)
-        # xlim(-1, 1)
-        #ylim(-1, 1)
-        #manager = FCGateManager(ax)
-        def x(*args):
-            pass
-
-        #verts = (('d1', 0.1))
-        #verts = {'d1' : 0.8}
-        verts = {'d1': 0.8, 'd2': 0.2}
-        #verts = (0.1, 0.1)
-        Globals.bv = BaseVertex(verts, x)
-        Globals.bv.spawn(('d1', 'd2'), ax)
-        Globals.bv.spawn(('d2', 'd1'), ax2)
-        Globals.bv.spawn(('d1', 'd2'), ax3)
-        Globals.bv.spawn(('d1', 'd2'), ax4)
-        #manager.v = Vertex(verts, ax, x, True, True)
-        #Globals.bv.update_coordinates({'d2' : 0.7, 'd1' : 0.9})
-        show()
-
-    def example2():
-        fig = figure()
-        ax = fig.add_subplot(1, 1, 1)
-        # ax2 = fig.add_subplot(1, 2, 2)
-        #xlim(-1, 1)
-        #ylim(-1, 1)
-        manager = FCGateManager(ax)
-
-        def x(*args):
-            print("This gate might not behave properly.")
-
-        #verts = (('d1', 0.1))
-        #verts = ({'d1' : 0.8}, )#, 'd1' : 0.3}, )
-        verts = ({'d2': 0.8, 'd1': 0.3}, )
-        #verts = ({'d1' : 0.8, 'd2' : 0.2},
-        #{'d1' : 0.4, 'd2' : 0.4},
-        #{'d1' : 0.7, 'd2' : 0.8})
-        #verts2 = ({'d1' : 0.9, 'd2' : 0.4},
-        #{'d1' : 0.6, 'd2' : 0.2},
-        #{'d1' : 0.8, 'd2' : 0.6})
-        #gate = BaseGate(verts, PolyGate, 'gate1', x)
-        #gate = BaseGate(verts, ThresholdGate, 'gate1', x)
-        #manager.add_gate(gate)
-        #Globals.bv2 = BaseGate(verts2, PolyGate, x)
-        #gate.spawn(('d1', 'd2'), ax)
-        #Globals.bv.remove_spawn()
-        #Globals.bv2.spawn(ax, ('d1', 'd2'))
-        #Globals.bv.spawn(ax, ('d1', 'd2'))
-        #Globals.bv.spawn(ax2, ('d2', 'd1'))
-        #Globals.bv.spawn(ax3, ('d1', 'd2'))
-        #Globals.bv.spawn(ax4, ('d1', 'd2'))
-        #manager.v = Vertex(verts, ax, x, True, True)
-        #Globals.bv.update_coordinates({'d2' : 0.7, 'd1' : 0.9})
-        show()
-
-    def example3():
-        fig = pl.figure()
-        ax = fig.add_subplot(1, 1, 1)
-        manager = FCGateManager(ax)
-        # manager.load_fcs('../tests/data/FlowCytometers/FACSCaliburHTS/Sample_Well_A02.fcs')
-        pl.show()
-
-    example3()

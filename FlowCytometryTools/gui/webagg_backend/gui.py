@@ -1,21 +1,24 @@
-import os
 import io
+import json
+import os
 import webbrowser
 
 import tornado
-import tornado.web
 import tornado.httpserver
 import tornado.ioloop
+import tornado.web
 import tornado.websocket
-
 from matplotlib.backends.backend_webagg_core import (
     FigureManagerWebAgg, new_figure_manager_given_figure)
 from matplotlib.figure import Figure
-import json
 
-import tkFileDialog
+try:  # Old library
+    import tkFileDialog as filedialog
+except:
+    # New style file dialog import
+    from tkinter import filedialog
 
-from FlowCytometryTools.GUI import fc_widget
+from FlowCytometryTools.gui import fc_widget
 
 
 class MyApplication(tornado.web.Application):
@@ -122,7 +125,8 @@ class MyApplication(tornado.web.Application):
                 fc_manager = self.application.fc_manager
 
                 if message['name'] == 'open_file':
-                    filename = tkFileDialog.askopenfilename(initialdir=os.path.curdir, defaultextension='.fcs')
+                    filename = filedialog.askopenfilename(initialdir=os.path.curdir,
+                                                          defaultextension='.fcs')
                     if len(filename) != 0:
                         fc_manager.load_fcs(filename)
                 elif message['name'] == 'draw_poly_gate':
@@ -204,7 +208,6 @@ class GUILauncher(object):
         if filepath is not None and measurement is not None:
             raise ValueError('You can only specify either filepath or measurement, but not both.')
 
-
         # Not sure if this is the appropriate way to deal with IOLoop
         # The question is what to do if launched from within ipython notebook, which is
         # already running a tornado server.
@@ -223,14 +226,16 @@ class GUILauncher(object):
         try:
             self.http_server.listen(port)
         except:
-            msg = 'Could not open port {}. Please make sure sure you have no open tabs using that port.'.format(port)
+            msg = ('Could not open port {}. Please make sure sure you have no open tabs '
+                   'using that port.'.format(port))
             print(msg)
             raise
         self.run()
 
     def run(self):
         url = r'http://127.0.0.1:8080/'
-        print("The application should have opened a new tab in the webbrowser at address: {}".format(url))
+        print('The application should have opened a new tab '
+              'in the webbrowser at address: {}'.format(url))
         webbrowser.open_new_tab(url)
 
         if self.ioloop_initiator:
@@ -241,7 +246,3 @@ class GUILauncher(object):
 
         if self.ioloop_initiator:
             tornado.ioloop.IOLoop.current().stop()
-
-if __name__ == "__main__":
-    # print io.running()
-    gui = GUILauncher('../../tests/data/Plate01/CFP_Well_A4.fcs')

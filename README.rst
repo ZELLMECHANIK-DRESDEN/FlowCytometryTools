@@ -1,19 +1,19 @@
 FlowCytometryTools
 -------------------
 
-**Authors**: Jonathan Friedman and `Eugene Yurtsev <http://eyurtsev.mit.edu>`_
+**Authors**: Jonathan Friedman and `Eugene Yurtsev <https://eyurtsev.github.io>`_
 
 .. image:: https://travis-ci.org/eyurtsev/FlowCytometryTools.svg?branch=master
     :target: https://travis-ci.org/eyurtsev/FlowCytometryTools
 .. image:: https://zenodo.org/badge/doi/10.5281/zenodo.32991.svg
-   :target: http://dx.doi.org/10.5281/zenodo.32991
-|
+    :target: https://zenodo.org/record/32991   
+
 
 FlowCytometryTools is a python package for visualization and analysis of high-throughput flow cytometry data.
 
 * **Intuitive**: provides a simple programmatic interface to work with flow cytometry data
 * **Flexible**: can analyze either individual samples or collections of many plates
-* **Scalable**: simplifies analysis of high-throughput data using the power of `pandas <http://pandas.pydata.org/>`_ 
+* **Scalable**: simplifies analysis of high-throughput data using the power of `pandas <https://pandas.pydata.org/>`_ 
 
 Who is this for?
 =====================
@@ -24,10 +24,20 @@ The package is specifically tailored for high-throughput analysis. It provides a
 
 Basic familiarity with the python programming languages is recommended.
 
-You can find a few example scripts that load and plot flow cytometry data in the `gallery <http://eyurtsev.github.io/FlowCytometryTools/gallery.html>`_ page.
+You can find a few example scripts that load and plot flow cytometry data in the `gallery <https://eyurtsev.github.io/FlowCytometryTools/gallery.html>`_ page.
 
-If you like what you see, then proceed to the `installation <http://eyurtsev.github.io/FlowCytometryTools/install.html>`_ page and then
-to the `tutorial <http://eyurtsev.github.io/FlowCytometryTools/tutorial.html>`_.
+If you like what you see, then proceed to the `installation <https://eyurtsev.github.io/FlowCytometryTools/install.html>`_ page and then
+to the `tutorial <https://eyurtsev.github.io/FlowCytometryTools/tutorial.html>`_.
+
+
+And yes, there's a UI to draw basic gates. It's super basic, but it gets the job done.
+
+.. image:: https://github.com/eyurtsev/FlowCytometryTools/blob/master/doc/source/_static/webagg_demo.gif 
+  :target: https://github.com/eyurtsev/FlowCytometryTools/blob/master/doc/source/_static/webagg_demo.gif 
+
+.. image:: _static/webagg_demo.gif
+  :target: _static/webagg_demo.gif
+
 
 Features
 ===================
@@ -36,13 +46,13 @@ Features
 - **Plotting**: 1D, 2D histograms for both single samples and collections (e.g., 96-well plates).
 - **Gating**: threshold, interval, quad, polygon gates
 - **Subsampling**: easy to subsample to examine only part of a measurement and randomize event order
-- **GUI**: simple graphical user interface to draw gates
+- **GUI**: simple graphical user interface to draw gates (`wx` or `webagg`)
 - **FCS Formats**: Supports FCS 2.0, 3.0, and 3.1
 
 Resources
 ===================
 
-- **Documentation:** http://eyurtsev.github.io/FlowCytometryTools/
+- **Documentation:** https://eyurtsev.github.io/FlowCytometryTools/
 - **Source Repository:** https://github.com/eyurtsev/FlowCytometryTools
 - **Comments or questions:** https://github.com/eyurtsev/FlowCytometryTools/issues
 
@@ -50,22 +60,21 @@ Dependencies
 ===================
 
 For more information about how to obtain these, please see the `installation
-<http://eyurtsev.github.io/FlowCytometryTools/install.html>`_ page.
+<https://eyurtsev.github.io/FlowCytometryTools/install.html>`_ page.
 
 FlowCytometryTools may work with older versions of some of these dependencies, but if
 you run into issues, please update the dependencies.
 
 **Required Dependencies**
 
-#. `python <http://www.python.org/getit/>`_ 2.7 (note that python 3.0 or higher are not yet supported!)
-#. `decorator <https://pypi.python.org/pypi/decorator>`_
-#. `pandas <http://pandas.sourceforge.net/index.html>`__ (Recommended version: 0.12.0 or higher).
-#. `matplotlib <http://matplotlib.org/>`__ (Recommended version: 1.13.1 or higher).
-#. `scipy <http://www.scipy.org/>`__ 
+#. `python <https://www.python.org/getit/>`_ python 2.7 or python 3
+#. `pandas <https://pandas.pydata.org/>`__ (Recommended version: 0.19.0 or higher).
+#. `matplotlib <https://matplotlib.org/>`__ (Recommended version: 1.5.3 or higher).
+#. `scipy <https://www.scipy.org/>`__ 
 
 **Optional Dependencies**
 
-#. `wx-python <http://wiki.wxpython.org/How%20to%20install%20wxPython>`__ : Used for the FlowCytometryTools GUI.
+#. `wx-python <https://wiki.wxpython.org/How%20to%20install%20wxPython>`__ : Used for the FlowCytometryTools GUI.
 
 Alternatives
 ===================
@@ -83,6 +92,12 @@ So if you find that FlowCytometryTools does not suit your needs, take a look at 
 
 Changes
 =====================
+
+v0.4.6, 2017-03-26
+
++ FIX: edge case for inferring x-range for spline interpolation when doing log transforms and with data the contains values in the interval. 
++ FIX: fix linear transform (kwargs weren't being passed correctly).
++ FIX: interval gate was raising exceptions for certain numpy versions (fix by alonyan)
 
 v0.4.5, 2015-10-31
 

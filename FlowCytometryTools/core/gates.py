@@ -12,12 +12,12 @@ Gates:
     QuadGate
     PolyGate
 """
-from GoreUtilities.util import to_list
-from matplotlib.path import Path
 import numpy
 import pylab as pl
+from matplotlib.path import Path
 
 from FlowCytometryTools.core.common_doc import doc_replacer
+from FlowCytometryTools.core.utils import to_list
 
 doc_replacer.update(_gate_pars_name="""\
 name : str
@@ -231,19 +231,14 @@ class IntervalGate(Gate):
         super(IntervalGate, self).__init__(vert, channel, region, name)
 
     def validate_input(self):
+        """Raise appropriate exception if gate was defined incorrectly."""
         if self.vert[1] <= self.vert[0]:
-            raise Exception('vert[1] must be larger than vert[0]')
+            raise ValueError(u'{} must be larger than {}'.format(self.vert[1], self.vert[0]))
 
     def _identify(self, dataframe):
-        """ Identifies which data points in the dataframe pass the gate. """
-        ##
-        # Let's get the indexes that are within the interval
-        idx1 = self.vert[0] <= dataframe[self.channels[0]]
-
-        # Should this comparison use a filtered array (using idx1) for optimization? Check
-        idx2 = dataframe[self.channels[0]] <= self.vert[1]
-
-        idx = idx1 & idx2
+        """Return bool series which is True for indexes that 'pass' the gate"""
+        idx = ((dataframe[self.channels[0]] <= self.vert[1]) &
+               (dataframe[self.channels[0]] >= self.vert[0]))
 
         if self.region == 'out':
             idx = ~idx

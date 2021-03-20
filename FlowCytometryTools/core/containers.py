@@ -2,31 +2,22 @@ from __future__ import absolute_import
 
 import collections
 import inspect
+import warnings
 from itertools import cycle
 from random import sample
-import warnings
 
+import matplotlib
+import numpy as np
 from fcsparser import parse as parse_fcs
 from pandas import DataFrame
-import numpy as np
-import matplotlib
 
-from GoreUtilities.util import to_list as to_iter
-from GoreUtilities.graph import plot_ndpanel
-
-from FlowCytometryTools.core.transforms import Transformation
-from FlowCytometryTools.core.bases import Measurement, MeasurementCollection, OrderedCollection, queueable
 import FlowCytometryTools.core.graph as graph
+from FlowCytometryTools.core.bases import (Measurement, MeasurementCollection, OrderedCollection,
+                                           queueable)
 from FlowCytometryTools.core.common_doc import doc_replacer
-
-
-def to_list(obj):
-    """ This is a quick fix to make sure indexing of DataFrames
-    takes place with lists instead of tuples. """
-    obj = to_iter(obj)
-    if isinstance(obj, tuple):
-        obj = list(obj)
-    return obj
+from FlowCytometryTools.core.graph import plot_ndpanel
+from FlowCytometryTools.core.transforms import Transformation
+from FlowCytometryTools.core.utils import to_list
 
 
 class FCMeasurement(Measurement):
@@ -101,8 +92,7 @@ class FCMeasurement(Measurement):
     @doc_replacer
     def plot(self, channel_names, kind='histogram',
              gates=None, gate_colors=None, gate_lw=1, **kwargs):
-        """
-        Plots the flow cytometry data associated with the sample on the current axis.
+        """Plot the flow cytometry data associated with the sample on the current axis.
 
         To produce the plot, follow up with a call to matplotlib's show() function.
 
@@ -199,42 +189,20 @@ class FCMeasurement(Measurement):
         backend: 'auto' | 'wx' | 'webagg'
             Specifies which backend should be used to view the sample.
         '''
-        ##
-        # Because this may be called from within ipython notebook inline backend
-        # we should adjust the backend
-        try:
-            from IPython import get_ipython
-        except ImportError:
-            get_ipython = None
-
-        switch_backends = ('inline' in matplotlib.get_backend()) and (get_ipython is not None)
-
-        # Switch from inline to wx if needed/possible
-        if switch_backends:
-            ipython = get_ipython()
-            ipython.magic('matplotlib {}'.format(backend))
-
         if backend == 'auto':
             if matplotlib.__version__ >= '1.4.3':
-                backend = 'webagg'
+                backend = 'WebAgg'
             else:
                 backend = 'wx'
 
         if backend == 'wx':
-            from FlowCytometryTools.GUI.wx_backend import gui
+            from FlowCytometryTools.gui.wx_backend import gui
         elif backend == 'webagg':
-            from FlowCytometryTools.GUI.webagg_backend import gui
+            from FlowCytometryTools.gui.webagg_backend import gui
         else:
             raise ValueError('No support for backend {}'.format(backend))
 
-        # Launch GUI
-        output = gui.GUILauncher(measurement=self)
-
-        # Switch back to inline mode if started in inline
-        if switch_backends:
-            ipython.magic('matplotlib inline')
-
-        return output
+        gui.GUILauncher(measurement=self)
 
     @queueable
     @doc_replacer
@@ -295,14 +263,18 @@ class FCMeasurement(Measurement):
                             therefore they cannot be transformed together.\n
                             HINT: Try transforming one channel at a time.
                             You'll need to provide the name of the channel in the transform.""")
-                    kwargs['d'] = np.log10(ranges[0])
+
+                    if transform in {'hlog', 'tlog', 'hlog_inv', 'tlog_inv'}:
+                        # Hacky fix to make sure that 'd' is provided only
+                        # for hlog / tlog transformations
+                        kwargs['d'] = np.log10(ranges[0])
             transformer = Transformation(transform, direction, args, **kwargs)
         ## create new data
         transformed = transformer(data[channels], use_spln)
         if return_all:
             new_data = data
         else:
-            new_data = data.filter(columns)
+            new_data = data.filter(channels)
         new_data[channels] = transformed
         ## update new Measurement
         new.data = new_data
@@ -359,7 +331,7 @@ class FCMeasurement(Measurement):
                     # EDGE CAES: Must return an empty sample
                     order = 'start'
                 if order == 'random':
-                    newdata = data.loc[sample(data.index, key)]  # Use loc not iloc here!!
+                    newdata = data.loc[sample(list(data.index), key)]  # Use loc not iloc here!!
                 elif order == 'start':
                     newdata = data.iloc[:key]
                 elif order == 'end':
@@ -444,8 +416,9 @@ class FCCollection(MeasurementCollection):
         '''
         new = self.copy()
         if share_transform:
-            channel_meta = self.values()[0].channels
-            channel_names = self.values()[0].channel_names
+
+            channel_meta = list(self.values())[0].channels
+            channel_names = list(self.values())[0].channel_names
             if channels is None:
                 channels = list(channel_names)
             else:
@@ -468,18 +441,22 @@ class FCCollection(MeasurementCollection):
                             raise Exception('Not all specified channels have the same '
                                             'data range, therefore they cannot be '
                                             'transformed together.')
-                        kwargs['d'] = np.log10(ranges[0])
+
+                        if transform in {'hlog', 'tlog', 'hlog_inv', 'tlog_inv'}:
+                            # Hacky fix to make sure that 'd' is provided only
+                            # for hlog / tlog transformations
+                            kwargs['d'] = np.log10(ranges[0])
                 transformer = Transformation(transform, direction, args, **kwargs)
                 if use_spln:
                     xmax = self.apply(lambda x: x[channels].max().max(), applyto='data').max().max()
                     xmin = self.apply(lambda x: x[channels].min().min(), applyto='data').min().min()
                     transformer.set_spline(xmin, xmax)
-            ## transform all measurements     
-            for k, v in new.iteritems():
+            ## transform all measurements
+            for k, v in new.items():
                 new[k] = v.transform(transformer, channels=channels, return_all=return_all,
                                      use_spln=use_spln, apply_now=apply_now)
         else:
-            for k, v in new.iteritems():
+            for k, v in new.items():
                 new[k] = v.transform(transform, direction=direction, channels=channels,
                                      return_all=return_all, auto_range=auto_range,
                                      get_transformer=False,
@@ -617,7 +594,7 @@ class FCOrderedCollection(OrderedCollection, FCCollection):
                             'row_labels': row_labels,
                             'col_labels': col_labels}
 
-        for key, value in kwargs.items():
+        for key, value in list(kwargs.items()):
             if key in grid_arg_list:
                 kwargs.pop(key)
                 grid_plot_kwargs[key] = value
@@ -640,8 +617,8 @@ class FCOrderedCollection(OrderedCollection, FCCollection):
                     min_list.append(self[sample].data[channel_names].min().values)
                     max_list.append(self[sample].data[channel_names].max().values)
 
-                min_list = zip(*min_list)
-                max_list = zip(*max_list)
+                min_list = list(zip(*min_list))
+                max_list = list(zip(*max_list))
 
                 bins = []
 
@@ -650,7 +627,7 @@ class FCOrderedCollection(OrderedCollection, FCCollection):
                     max_v = max(max_list[i])
                     bins.append(np.linspace(min_v, max_v, nbins))
 
-                # Check if 1d 
+                # Check if 1d
                 if len(channel_names) == 1:
                     bins = bins[0]  # bins should be an ndarray, not a list of ndarrays
 
@@ -658,7 +635,7 @@ class FCOrderedCollection(OrderedCollection, FCCollection):
 
         ##########
         # Defining the plotting function that will be used.
-        # At the moment grid_plot handles the labeling 
+        # At the moment grid_plot handles the labeling
         # (rather than sample.plot or the base function
         # in GoreUtilities.graph
 

@@ -1,4 +1,4 @@
-''''
+"""'
 Various transformations for flow cytometry data.
 The forward transformations all refer to transforming the
 raw data off the machine (i.e. a log transformation is the forword
@@ -13,19 +13,18 @@ TODO:
 - Add scale parameters (r,d) to glog (if needed?)
 - Implement logicle transformation.
 - Add support for transforming a numpy array
-'''
+"""
 from __future__ import division
 
 import warnings
 
-from numpy import (log, log10, exp, where, sign, vectorize, apply_along_axis,
-                   min, max, linspace, logspace, r_, abs, asarray)
+from numpy import (log, log10, exp, where, sign, vectorize, min, max, linspace, logspace, r_, abs,
+                   asarray)
 from numpy.lib.shape_base import apply_along_axis
-from scipy.optimize import brentq
 from scipy.interpolate import InterpolatedUnivariateSpline
+from scipy.optimize import brentq
 
-from GoreUtilities import BaseObject
-from GoreUtilities.util import to_list
+from FlowCytometryTools.core.utils import to_list, BaseObject
 
 _machine_max = 2 ** 18
 _l_mmax = log10(_machine_max)
@@ -45,7 +44,8 @@ def linear(x, old_range, new_range):
         Maximal data value after rescaling
     old_range : float | array | Series
         Maximal data value before rescaling
-        (If old range is not given use the one specified in self.meta['_channels_']['$PnR']) Depracated!!!
+        (If old range is not given use the one specified in self.meta['_channels_']['$PnR'])
+        Deprecated!!!
     """
     y = x / old_range * new_range
     return y
@@ -55,7 +55,7 @@ rescale = linear
 
 
 def tlog(x, th=1, r=_display_max, d=_l_mmax):
-    '''
+    """
     Truncated log10 transform.
 
     Parameters
@@ -74,14 +74,14 @@ def tlog(x, th=1, r=_display_max, d=_l_mmax):
     Returns
     -------
     Array of transformed values.
-    '''
+    """
     if th <= 0:
         raise ValueError('Threshold value must be positive. %s given.' % th)
     return where(x <= th, log10(th) * 1. * r / d, log10(x) * 1. * r / d)
 
 
 def tlog_inv(y, th=1, r=_display_max, d=_l_mmax):
-    '''
+    """
     Inverse truncated log10 transform.
     Values
 
@@ -101,7 +101,7 @@ def tlog_inv(y, th=1, r=_display_max, d=_l_mmax):
     Returns
     -------
     Array of transformed values.
-    '''
+    """
     if th <= 0:
         raise ValueError('Threshold value must be positive. %s given.' % th)
     x = 10 ** (y * 1. * d / r)
@@ -113,9 +113,9 @@ def tlog_inv(y, th=1, r=_display_max, d=_l_mmax):
 
 
 def glog(x, l):
-    '''
+    """
     Natural base generalized-log transform.
-    '''
+    """
     return log(x + (x ** 2 + l) ** 0.5)
 
 
@@ -125,9 +125,9 @@ def glog_inv(y, l):
 
 
 def hlog_inv(y, b=500, r=_display_max, d=_l_mmax):
-    '''
+    """
     Inverse of base 10 hyperlog transform.
-    '''
+    """
     aux = 1. * d / r * y
     s = sign(y)
     if s.shape:  # to catch case where input is a single number
@@ -138,7 +138,7 @@ def hlog_inv(y, b=500, r=_display_max, d=_l_mmax):
 
 
 def _x_for_spln(x, nx, log_spacing):
-    '''
+    """
     Create vector of values to be used in constructing a spline.
 
     Parameters
@@ -159,37 +159,63 @@ def _x_for_spln(x, nx, log_spacing):
     Returns
     -------
     x_spln : array
-    '''
+    """
     x = asarray(x)
     xmin = min(x)
     xmax = max(x)
     if xmin == xmax:
         return asarray([xmin] * nx)
     if xmax <= 0:  # all values<=0
-        return -_x_for_spln(-x, nx, True)[::-1]
+        return -_x_for_spln(-x, nx, log_spacing)[::-1]
+
     if not log_spacing:
-        x_spln = linspace(xmin, xmax, nx)
+        return linspace(xmin, xmax, nx)
+
+    # All code below is to handle-log-spacing when x has potentially both negative
+    # and positive values.
+    if xmin > 0:
+        return logspace(log10(xmin), log10(xmax), nx)
     else:
-        lxmax = log10(xmax)
-        lxmin = log10(abs(xmin))
+        lxmax = max([log10(xmax), 0])
+        lxmin = max([log10(abs(xmin)), 0])
+
+        # All the code below is for log-spacing, when xmin < 0 and xmax > 0
+        if lxmax == 0 and lxmin == 0:
+            return linspace(xmin, xmax, nx)  # Use linear spacing as fallback
+
         if xmin > 0:
             x_spln = logspace(lxmin, lxmax, nx)
         elif xmin == 0:
-            x_spln = r_[0, logspace(-1, lxmax, nx)]
-        else:
+            x_spln = r_[0, logspace(-1, lxmax, nx - 1)]
+        else:  # (xmin < 0)
             f = lxmin / (lxmin + lxmax)
             nx_neg = int(f * nx)
             nx_pos = nx - nx_neg
+
+            if nx <= 1:
+                # If triggered fix edge case behavior
+                raise AssertionError(u'nx should never bebe 0 or 1')
+
+            # Work-around various edge cases
+            if nx_neg == 0:
+                nx_neg = 1
+                nx_pos = nx_pos - 1
+
+            if nx_pos == 0:
+                nx_pos = 1
+                nx_neg = nx_neg - 1
+
             x_spln_pos = logspace(-1, lxmax, nx_pos)
-            x_spln_neg = -logspace(-1, lxmin, nx_neg)[::-1]
+            x_spln_neg = -logspace(lxmin, -1, nx_neg)
+
             x_spln = r_[x_spln_neg, x_spln_pos]
     return x_spln
 
 
 def _make_hlog_numeric(b, r, d):
-    '''
+    """
     Return a function that numerically computes the hlog transformation for given parameter values.
-    '''
+    """
     hlog_obj = lambda y, x, b, r, d: hlog_inv(y, b, r, d) - x
     find_inv = vectorize(lambda x: brentq(hlog_obj, -2 * r, 2 * r,
                                           args=(x, b, r, d)))
@@ -197,7 +223,7 @@ def _make_hlog_numeric(b, r, d):
 
 
 def hlog(x, b=500, r=_display_max, d=_l_mmax):
-    '''
+    """
     Base 10 hyperlog transform.
 
     Parameters
@@ -216,7 +242,7 @@ def hlog(x, b=500, r=_display_max, d=_l_mmax):
     Returns
     -------
     Array of transformed values.
-    '''
+    """
     hlog_fun = _make_hlog_numeric(b, r, d)
     if not hasattr(x, '__len__'):  # if transforming a single number
         y = hlog_fun(x)
@@ -257,9 +283,9 @@ name_transforms = {
 
 
 def parse_transform(transform, direction='forward'):
-    '''
+    """
     direction : 'forward' | 'inverse'
-    '''
+    """
     if hasattr(transform, '__call__'):
         tfun = transform
         tname = None
@@ -276,7 +302,7 @@ def parse_transform(transform, direction='forward'):
 
 def transform_frame(frame, transform, columns=None, direction='forward',
                     return_all=True, args=(), **kwargs):
-    '''
+    """
     Apply transform to specified columns.
 
     direction: 'forward' | 'inverse'
@@ -285,7 +311,7 @@ def transform_frame(frame, transform, columns=None, direction='forward',
         False - return only specified columns.
 
     .. warning:: deprecated
-    '''
+    """
     tfun, tname = parse_transform(transform, direction)
     columns = to_list(columns)
     if columns is None:
@@ -300,12 +326,12 @@ def transform_frame(frame, transform, columns=None, direction='forward',
 
 
 class Transformation(BaseObject):
-    '''
+    """
     A transformation for flow cytometry data.
-    '''
+    """
 
     def __init__(self, transform, direction='forward', name=None, spln=None, args=(), **kwargs):
-        '''
+        """
         Parameters
         ----------
         transform: callable | str
@@ -314,7 +340,7 @@ class Transformation(BaseObject):
             Supported transformation are: {}.
         direction: 'forward' | 'inverse'
             Direction of the transformation.
-        '''
+        """
         tfun, tname = parse_transform(transform, direction)
         self.tfun = tfun
         self.tname = tname
@@ -330,7 +356,7 @@ class Transformation(BaseObject):
         return repr(self.name)
 
     def transform(self, x, use_spln=False, **kwargs):
-        '''
+        """
         Apply transform to x
 
         Parameters
@@ -349,9 +375,9 @@ class Transformation(BaseObject):
         Returns
         -------
         Array of transformed values.
-        '''
+        """
         x = asarray(x, dtype=float)
-        n = x.shape[0]
+
         if use_spln:
             if self.spln is None:
                 self.set_spline(x.min(), x.max(), **kwargs)

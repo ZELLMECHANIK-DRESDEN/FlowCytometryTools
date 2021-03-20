@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import wx
-import matplotlib
-from wireframe import GeneratedWireframe
-from FlowCytometryTools.GUI import fc_widget
+
+from FlowCytometryTools.gui import fc_widget
+from FlowCytometryTools.gui.wx_backend.wireframe import GeneratedWireframe
+
 
 class GUIEmbedded(GeneratedWireframe):
     def __init__(self, *args, **kwargs):
@@ -57,7 +58,7 @@ class GUIEmbedded(GeneratedWireframe):
         if self.fcgatemanager.sample is not None:
             options = list(self.fcgatemanager.sample.channel_names)
         else:
-            options = list(['d1', 'd2', 'd3']) # For testing
+            options = list(['d1', 'd2', 'd3'])  # For testing
         self.x_axis_list.Clear()
         self.x_axis_list.InsertItems(options, 0)
         self.y_axis_list.Clear()
@@ -77,19 +78,19 @@ class GUIEmbedded(GeneratedWireframe):
         sel2 = self.y_axis_list.GetSelection()
 
         if sel1 >= 0 and sel2 >= 0:
-            channel_1 = self.x_axis_list.GetString(sel1).encode('UTF-8')
-            channel_2 = self.y_axis_list.GetString(sel2).encode('UTF-8')
+            channel_1 = self.x_axis_list.GetString(sel1)
+            channel_2 = self.y_axis_list.GetString(sel2)
             self.fcgatemanager.set_axes((channel_1, channel_2), self.ax)
+
 
 class GUILauncher(object):
     """ Use this to launch the wx-based fdlow cytometry app """
+
     def __init__(self, filepath=None, measurement=None):
         if filepath is not None and measurement is not None:
             raise ValueError('You can only specify either filepath or measurement, but not both.')
 
-        #self.app = wx.PySimpleApp(0)
         self.app = wx.App(False)
-        #wx.InitAllImageHandlers()
         self.main = GUIEmbedded(None, -1, "")
         self.app.SetTopWindow(self.main)
         if filepath is not None:
@@ -101,7 +102,3 @@ class GUILauncher(object):
     def run(self):
         self.main.Show()
         self.app.MainLoop()
-
-if __name__ == "__main__":
-    app = GUILauncher('../../tests/data/FlowCytometers/FACSCaliburHTS/Sample_Well_A02.fcs')
-    #app = GUILauncher()
